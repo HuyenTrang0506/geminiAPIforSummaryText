@@ -1,6 +1,7 @@
 import pathlib
 import textwrap
 import google.generativeai as genai
+from IPython.display import display, Markdown
 import pandas as pd
 import json
 
@@ -40,8 +41,11 @@ def summarize_text_batch(texts):
     try:
         # Gọi API để lấy tóm tắt
         response = model.generate_content(prompt)
+
         text_content = response.text
+
         decoded_text = json.loads(text_content)
+
         summaries = decoded_text
         print(summaries)
         return summaries
@@ -49,15 +53,16 @@ def summarize_text_batch(texts):
         # Xử lý lỗi và trả về thông báo lỗi cho tất cả văn bản
         print(f"Error occurred: {e}")
         return [f"Error: {e}"] * len(texts)
-# Tạo cột Tóm tắt từ cột Comment đã chỉnh sửa
 summaries = []
-batch_size = 10
-for i in range(0, len(df['Comment đã chỉnh sửa']), batch_size):
+batch_size = 10  #we will process 10 comments at a time
+max_batches = 30  # Because dataset has 300 rows, so we can process 30 batches of 10 rows each
+
+# Lặp qua 30 batch (hoặc ít hơn nếu không đủ dữ liệu)
+for i in range(0, min(len(df['Comment đã chỉnh sửa']), max_batches * batch_size), batch_size):
     # Chọn 10 dòng tiếp theo từ cột 'Comment đã chỉnh sửa'
     batch = df['Comment đã chỉnh sửa'][i:i+batch_size].tolist()
     try:
-        #lay do dai dataset chia 10, vi du 300/10 = 30
-        print(f"Sending batch {i // batch_size + 1} of 30: {batch}")
+        print(f"Sending batch {i // batch_size + 1} of {min(len(df) // batch_size + 1, max_batches)}: {batch}")
         summary_batch = summarize_text_batch(batch)
         summaries.extend(summary_batch)
         print(f"Batch {i // batch_size + 1} processed successfully")
@@ -65,9 +70,8 @@ for i in range(0, len(df['Comment đã chỉnh sửa']), batch_size):
         summaries.extend([f"Error: {e}"] * len(batch))
         print(f"Batch {i // batch_size + 1} failed - {e}")
 
-
+# Thêm cột Tóm tắt vào DataFrame
 df['Tóm tắt'] = summaries
-
 # Ghi lại DataFrame đã cập nhật vào file Excel
 output_file = "dataset/dataVietSummaries.xlsx"
 df.to_excel(output_file, index=False)
